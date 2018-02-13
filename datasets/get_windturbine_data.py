@@ -11,7 +11,7 @@ import requests
 import csv
 
 # Some metadata first
-SCRIPT_VERSION = '0.0.1'
+SCRIPT_VERSION = '0.0.2'
 SCRIPT_NAME = os.path.basename(__file__)
 TIMESTAMP = str(datetime.now()).replace(':', '.')
 SCRIPT_START = time()
@@ -63,75 +63,76 @@ data_points = response_dict['results']['bindings']
 random_offsets = 2 * MAX_COORD_OFFSET * (np.random.random((len(data_points), 2)) - 0.5)
 random_scales = 1 - 2 * MAX_SCALE_FACTOR * (np.random.random((len(data_points),)) - 0.5)
 
-with open('../data/windturbines/metadata{}.csv'.format(TIMESTAMP), 'w', newline='') as csvfile:
-    fieldnames = ['timestamp', 'URI', 'image_file', 'original_rd_x', 'original_rd_y', 'offset_x', 'offset_y', 'scale',
-                  'request', ]
-    csvwriter = csv.DictWriter(csvfile, fieldnames)
+csvfile = open('../data/windturbines/metadata{}.csv'.format(TIMESTAMP), 'w', newline='')
+fieldnames = ['timestamp', 'URI', 'image_file', 'original_rd_x', 'original_rd_y', 'offset_x', 'offset_y', 'scale',
+              'request', ]
+csvwriter = csv.DictWriter(csvfile, fieldnames)
+csvwriter.writeheader()
 
-    for record in data_points:
-        random_offsets = 2 * MAX_COORD_OFFSET * (np.random.random((IMAGES_PER_OBJECT, 2)) - 0.5)
-        random_scales = 1 - 2 * MAX_SCALE_FACTOR * (np.random.random((IMAGES_PER_OBJECT,)) - 0.5)
+for record in data_points:
+    random_offsets = 2 * MAX_COORD_OFFSET * (np.random.random((IMAGES_PER_OBJECT, 2)) - 0.5)
+    random_scales = 1 - 2 * MAX_SCALE_FACTOR * (np.random.random((IMAGES_PER_OBJECT,)) - 0.5)
 
-        for offset, scale in zip(random_offsets, random_scales):
-            rd_wkt = record['rd']['value']
-            uri = record['instance']['value']
-            rd_pattern = re.compile('POINT \((.+) (.+)\)')
-            rd_coords = rd_pattern.findall(rd_wkt)
-            if not rd_coords:
-                print('Error finding coordinates in RD geometry string', rd_wkt)
-                continue
+    for offset, scale in zip(random_offsets, random_scales):
+        rd_wkt = record['rd']['value']
+        uri = record['instance']['value']
+        rd_pattern = re.compile('POINT \((.+) (.+)\)')
+        rd_coords = rd_pattern.findall(rd_wkt)
+        if not rd_coords:
+            print('Error finding coordinates in RD geometry string', rd_wkt)
+            continue
 
-            url = "https://geodata.nationaalgeoregister.nl/luchtfoto/rgb/wms"
-            rd_x = float(rd_coords[0][0]) + offset[0]
-            rd_y = float(rd_coords[0][1]) + offset[1]
-            querystring = {
-                "LAYERS": "2016_ortho25",
-                "FORMAT": "image/png",
-                "TRANSPARENT": "TRUE",
-                "SERVICE": "WMS",
-                "VERSION": "1.1.1",
-                "REQUEST": "GetMap",
-                "STYLES": "",
-                "SRS": "EPSG:28992",
-                # at scale in meter-based coordinate systems it is useless to have more than one decimal
-                "BBOX": "{min_x:0.1f},{min_y:0.1f},{max_x:0.1f},{max_y:0.1f}".format(
-                    min_x=rd_x - (BBOX_CENTER_OFFSET_X * scale),
-                    min_y=rd_y - (BBOX_CENTER_OFFSET_Y * scale),
-                    max_x=rd_x + (BBOX_CENTER_OFFSET_X * scale),
-                    max_y=rd_y + (BBOX_CENTER_OFFSET_Y * scale),
-                ),
-                "WIDTH": IMAGE_SIZE_X, "HEIGHT": IMAGE_SIZE_Y
-            }
+        url = "https://geodata.nationaalgeoregister.nl/luchtfoto/rgb/wms"
+        rd_x = float(rd_coords[0][0]) + offset[0]
+        rd_y = float(rd_coords[0][1]) + offset[1]
+        querystring = {
+            "LAYERS": "2016_ortho25",
+            "FORMAT": "image/png",
+            "TRANSPARENT": "TRUE",
+            "SERVICE": "WMS",
+            "VERSION": "1.1.1",
+            "REQUEST": "GetMap",
+            "STYLES": "",
+            "SRS": "EPSG:28992",
+            # at scale in meter-based coordinate systems it is useless to have more than one decimal
+            "BBOX": "{min_x:0.1f},{min_y:0.1f},{max_x:0.1f},{max_y:0.1f}".format(
+                min_x=rd_x - (BBOX_CENTER_OFFSET_X * scale),
+                min_y=rd_y - (BBOX_CENTER_OFFSET_Y * scale),
+                max_x=rd_x + (BBOX_CENTER_OFFSET_X * scale),
+                max_y=rd_y + (BBOX_CENTER_OFFSET_Y * scale),
+            ),
+            "WIDTH": IMAGE_SIZE_X, "HEIGHT": IMAGE_SIZE_Y
+        }
 
-            headers = {
-                'Host': "geodata.nationaalgeoregister.nl",
-                'User-Agent': "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:58.0) Gecko/20100101 Firefox/58.0",
-                'Accept': "*/*",
-                'Accept-Language': "en-US,en;q=0.5",
-                'Referer': "http://pdokviewer.pdok.nl/",
-                'Connection': "keep-alive",
-                'Cache-Control': "no-cache",
-                'Postman-Token': "c0f65097-d71e-4254-efd5-ee2b470c2cb8"
-            }
+        headers = {
+            'Host': "geodata.nationaalgeoregister.nl",
+            'User-Agent': "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:58.0) Gecko/20100101 Firefox/58.0",
+            'Accept': "*/*",
+            'Accept-Language': "en-US,en;q=0.5",
+            'Referer': "http://pdokviewer.pdok.nl/",
+            'Connection': "keep-alive",
+            'Cache-Control': "no-cache",
+            'Postman-Token': "c0f65097-d71e-4254-efd5-ee2b470c2cb8"
+        }
 
-            image_file_path = '../data/windturbines/' + str(uuid4()) + '.png'
-            response = requests.request("GET", url, headers=headers, params=querystring)
-            with open(image_file_path, mode='wb') as image:
-                for chunk in response:
-                    image.write(chunk)
+        image_file_path = '../data/windturbines/' + str(uuid4()) + '.png'
+        response = requests.request("GET", url, headers=headers, params=querystring)
+        with open(image_file_path, mode='wb') as image:
+            for chunk in response:
+                image.write(chunk)
 
-            csvwriter.writerow({
-                'timestamp': datetime.now(),
-                'URI': uri,
-                'image_file': image_file_path,
-                'original_rd_x': rd_coords[0][0],
-                'original_rd_y': rd_coords[0][1],
-                'offset_x': offset[0],
-                'offset_y': offset[1],
-                'scale': scale,
-                'request': response.request.url
-            })
-            csvfile.flush()
+        csvwriter.writerow({
+            'timestamp': datetime.now(),
+            'URI': uri,
+            'image_file': image_file_path,
+            'original_rd_x': rd_coords[0][0],
+            'original_rd_y': rd_coords[0][1],
+            'offset_x': offset[0],
+            'offset_y': offset[1],
+            'scale': scale,
+            'request': response.request.url
+        })
+        csvfile.flush()
 
 runtime = time() - SCRIPT_START
 print(SCRIPT_NAME, 'finished successfully in {}'.format(timedelta(seconds=runtime)))
