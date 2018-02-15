@@ -8,17 +8,21 @@ from time import time
 from urllib.parse import quote
 import requests
 from numpy.random import random
+from shapely import wkt
 
-# Some metadata first
-
-SCRIPT_VERSION = '0.0.3'
+# Script metadata first
+SCRIPT_VERSION = '0.0.4'
 SCRIPT_NAME = os.path.basename(__file__)
 TIMESTAMP = str(datetime.now()).replace(':', '.')
 SCRIPT_START = time()
 
+# Objects and image settings
+SPARQL_URL = 'https://data.pdok.nl/sparql'
 BRT_OBJECT_TYPE = 'Windturbine'
 MAX_SCALE_FACTOR = 0.1
 MAX_COORD_OFFSET = 100
+IMAGE_FORMAT = 'image/png'
+WMS_URL = 'https://geodata.nationaalgeoregister.nl/luchtfoto/rgb/wms'
 IMAGE_SIZE_X = 1024  # in pixels
 IMAGE_SIZE_Y = 1024  # in pixels
 RESOLUTION = 0.25    # in meters per pixel along x and y axis
@@ -33,7 +37,11 @@ RD_X_MAX = 308975.28
 RD_Y_MIN = 276050.82
 RD_Y_MAX = 636456.31
 
-url = "https://data.pdok.nl/sparql"
+# Build Netherlands geometry to check randomly created points to fall within
+with open('Netherlands.txt') as csv_neth:
+    netherlands = wkt.load(csv_neth)
+
+# Get list of objects to get aerial imagery for
 payload = '''
 PREFIX brt: <http://brt.basisregistraties.overheid.nl/def/top10nl#>
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>
@@ -50,23 +58,23 @@ SELECT  * WHERE {{
 '''.format(BRT_OBJECT_TYPE)
 
 headers = {
-    'Accept': "application/sparql-results+json",
-    'Content-Type': "application/x-www-form-urlencoded; charset=UTF-8",
-    'X-Requested-With': "XMLHttpRequest",
-    'Connection': "keep-alive",
+    'Accept': 'application/sparql-results+json',
+    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+    'X-Requested-With': 'XMLHttpRequest',
+    'Connection': 'keep-alive',
 }
 
-response = requests.request("POST", url, data='query=' + quote(payload), headers=headers)
+response = requests.request('POST', SPARQL_URL, data='query=' + quote(payload), headers=headers)
 if not response.status_code == 200:
     print('Error getting list of', BRT_OBJECT_TYPE, 'instances from sparql endpoint')
 response_dict = json.loads(response.text)
 variables = response_dict['head']['vars']
 positive_data_points = response_dict['results']['bindings']
 
+# Metadata csv creation/append
 os.makedirs(DATA_DIR + 'train', exist_ok=True)
 os.makedirs(DATA_DIR + 'test', exist_ok=True)
 
-# Metadata csv creation/append
 train_csv_exists = isfile('{}train/metadata.csv'.format(DATA_DIR))
 test_csv_exists = isfile('{}test/metadata.csv'.format(DATA_DIR))
 csvfile = {
@@ -86,6 +94,7 @@ if not test_csv_exists:
     csv_writer['test'].writeheader()
 
 # Harvest images for locations with wind turbines
+session = requests.Session()
 for record_index, record in enumerate(positive_data_points):
     if record_index % (1 / TRAIN_TEST_SPLIT) == 0:
         subset = 'test'
@@ -112,28 +121,31 @@ for record_index, record in enumerate(positive_data_points):
         rd_x = float(rd_coords[0][0]) + offset[0]
         rd_y = float(rd_coords[0][1]) + offset[1]
 
-        url = "https://geodata.nationaalgeoregister.nl/luchtfoto/rgb/wms"
         querystring = {
-            "LAYERS": "2016_ortho25",
-            "FORMAT": "image/png",
-            "TRANSPARENT": "TRUE",
-            "SERVICE": "WMS",
-            "VERSION": "1.1.1",
-            "REQUEST": "GetMap",
-            "STYLES": "",
-            "SRS": "EPSG:28992",
+            'LAYERS': '2016_ortho25',
+            'FORMAT': IMAGE_FORMAT,
+            'TRANSPARENT': 'TRUE',
+            'SERVICE': 'WMS',
+            'VERSION': '1.1.1',
+            'REQUEST': 'GetMap',
+            'STYLES': '',
+            'SRS': 'EPSG:28992',
             # at scale in meter-based coordinate systems it is useless to have more than one decimal
-            "BBOX": "{min_x:0.1f},{min_y:0.1f},{max_x:0.1f},{max_y:0.1f}".format(
+            'BBOX': '{min_x:0.1f},{min_y:0.1f},{max_x:0.1f},{max_y:0.1f}'.format(
                 min_x=rd_x - (BBOX_CENTER_OFFSET_X * scale),
                 min_y=rd_y - (BBOX_CENTER_OFFSET_Y * scale),
                 max_x=rd_x + (BBOX_CENTER_OFFSET_X * scale),
                 max_y=rd_y + (BBOX_CENTER_OFFSET_Y * scale),
             ),
-            "WIDTH": IMAGE_SIZE_X, "HEIGHT": IMAGE_SIZE_Y
+            'WIDTH': IMAGE_SIZE_X, 'HEIGHT': IMAGE_SIZE_Y
         }
 
+        response = session.get(WMS_URL, params=querystring, timeout=500)
+        if not response.headers['Content-Type'].startswith(IMAGE_FORMAT):
+            print('Skipping entry', uri, 'Bad response type', response.headers['Content-Type'])
+            continue
+
         image_file_path = DATA_DIR + subset + '/' + image_file_name
-        response = requests.request("GET", url, params=querystring)
         with open(image_file_path, mode='wb') as image:
             for chunk in response:
                 image.write(chunk)
@@ -163,6 +175,14 @@ for neg_sample_index in range(number_of_neg_samples):
 
     random_x = random((1,)) * (RD_X_MAX - RD_X_MIN) + RD_X_MIN
     random_y = random((1,)) * (RD_Y_MAX - RD_Y_MIN) + RD_Y_MIN
+    point = wkt.loads('POINT ({} {})'.format(random_x[0], random_y[0]))
+
+    while not point.within(netherlands):
+        print('Retrying random point, not within Netherlands contour')
+        random_x = random((1,)) * (RD_X_MAX - RD_X_MIN) + RD_X_MIN
+        random_y = random((1,)) * (RD_Y_MAX - RD_Y_MIN) + RD_Y_MIN
+        point = wkt.loads('POINT ({} {})'.format(random_x[0], random_y[0]))
+
     random_offsets = 2 * MAX_COORD_OFFSET * (random((IMAGES_PER_OBJECT, 2)) - 0.5)
     random_scales = 1 - 2 * MAX_SCALE_FACTOR * (random((IMAGES_PER_OBJECT,)) - 0.5)
 
@@ -174,28 +194,31 @@ for neg_sample_index in range(number_of_neg_samples):
 
         rd_x = float(random_x) + offset[0]
         rd_y = float(random_y) + offset[1]
-        url = "https://geodata.nationaalgeoregister.nl/luchtfoto/rgb/wms"
         querystring = {
-            "LAYERS": "2016_ortho25",
-            "FORMAT": "image/png",
-            "TRANSPARENT": "TRUE",
-            "SERVICE": "WMS",
-            "VERSION": "1.1.1",
-            "REQUEST": "GetMap",
-            "STYLES": "",
-            "SRS": "EPSG:28992",
+            'LAYERS': '2016_ortho25',
+            'FORMAT': IMAGE_FORMAT,
+            'TRANSPARENT': 'TRUE',
+            'SERVICE': 'WMS',
+            'VERSION': '1.1.1',
+            'REQUEST': 'GetMap',
+            'STYLES': '',
+            'SRS': 'EPSG:28992',
             # at scale in meter-based coordinate systems it is useless to have more than one decimal
-            "BBOX": "{min_x:0.1f},{min_y:0.1f},{max_x:0.1f},{max_y:0.1f}".format(
+            'BBOX': '{min_x:0.1f},{min_y:0.1f},{max_x:0.1f},{max_y:0.1f}'.format(
                 min_x=rd_x - (BBOX_CENTER_OFFSET_X * scale),
                 min_y=rd_y - (BBOX_CENTER_OFFSET_Y * scale),
                 max_x=rd_x + (BBOX_CENTER_OFFSET_X * scale),
                 max_y=rd_y + (BBOX_CENTER_OFFSET_Y * scale),
             ),
-            "WIDTH": IMAGE_SIZE_X, "HEIGHT": IMAGE_SIZE_Y
+            'WIDTH': IMAGE_SIZE_X, 'HEIGHT': IMAGE_SIZE_Y
         }
 
+        response = session.get(WMS_URL, params=querystring, timeout=500)
+        if not response.headers['Content-Type'].startswith(IMAGE_FORMAT):
+            print('Skipping entry', image_file_name, 'bad response type', response.headers['Content-Type'])
+            continue
+
         image_file_path = DATA_DIR + subset + '/' + image_file_name
-        response = requests.request("GET", url, params=querystring)
         with open(image_file_path, mode='wb') as image:
             for chunk in response:
                 image.write(chunk)
@@ -214,6 +237,9 @@ for neg_sample_index in range(number_of_neg_samples):
         })
         csvfile[subset].flush()
         print('Wrote image and data for record', neg_sample_index, 'of', number_of_neg_samples)
+
+# Close https session
+session.close()
 
 runtime = time() - SCRIPT_START
 print(SCRIPT_NAME, 'finished successfully in {}'.format(timedelta(seconds=runtime)))
