@@ -7,10 +7,13 @@ from os.path import isfile
 from time import time
 from urllib.parse import quote
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 from numpy.random import random
 from shapely import wkt
 
 # Script metadata first
+
 SCRIPT_VERSION = '0.0.4'
 SCRIPT_NAME = os.path.basename(__file__)
 TIMESTAMP = str(datetime.now()).replace(':', '.')
@@ -64,6 +67,28 @@ headers = {
     'Connection': 'keep-alive',
 }
 
+
+def requests_retry_session(
+        # Thank you Peter Becom
+        # https://www.peterbe.com/plog/best-practice-with-retries-with-requests
+        retries=3,
+        backoff_factor=5,
+        status_forcelist=(500, 502, 504),
+        session=None):
+    session = session or requests.Session()
+    retry = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
+
+
 response = requests.request('POST', SPARQL_URL, data='query=' + quote(payload), headers=headers)
 if not response.status_code == 200:
     print('Error getting list of', BRT_OBJECT_TYPE, 'instances from sparql endpoint')
@@ -95,6 +120,7 @@ if not test_csv_exists:
 
 # Harvest images for locations with wind turbines
 session = requests.Session()
+
 for record_index, record in enumerate(positive_data_points):
     if record_index % (1 / TRAIN_TEST_SPLIT) == 0:
         subset = 'test'
@@ -140,7 +166,7 @@ for record_index, record in enumerate(positive_data_points):
             'WIDTH': IMAGE_SIZE_X, 'HEIGHT': IMAGE_SIZE_Y
         }
 
-        response = session.get(WMS_URL, params=querystring, timeout=500)
+        response = requests_retry_session(session=session).get(WMS_URL, params=querystring, timeout=500)
         if not response.headers['Content-Type'].startswith(IMAGE_FORMAT):
             print('Skipping entry', uri, 'Bad response type', response.headers['Content-Type'])
             continue
@@ -213,7 +239,7 @@ for neg_sample_index in range(number_of_neg_samples):
             'WIDTH': IMAGE_SIZE_X, 'HEIGHT': IMAGE_SIZE_Y
         }
 
-        response = session.get(WMS_URL, params=querystring, timeout=500)
+        response = requests_retry_session(session=session).get(WMS_URL, params=querystring, timeout=500)
         if not response.headers['Content-Type'].startswith(IMAGE_FORMAT):
             print('Skipping entry', image_file_name, 'bad response type', response.headers['Content-Type'])
             continue
