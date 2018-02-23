@@ -102,3 +102,4 @@ ENV/
 /.idea/
 data/windturbines/**/*.png
 data/windturbines/**/*.csv
+!/data/windturbines/example.png
