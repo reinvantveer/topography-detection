@@ -14,7 +14,7 @@ from shapely import wkt
 
 # Script metadata first
 
-SCRIPT_VERSION = '0.0.4'
+SCRIPT_VERSION = '0.0.5'
 SCRIPT_NAME = os.path.basename(__file__)
 TIMESTAMP = str(datetime.now()).replace(':', '.')
 SCRIPT_START = time()
@@ -28,13 +28,13 @@ IMAGE_FORMAT = 'image/png'
 WMS_URL = 'https://geodata.nationaalgeoregister.nl/luchtfoto/rgb/wms'
 IMAGE_SIZE_X = 1024  # in pixels
 IMAGE_SIZE_Y = 1024  # in pixels
-RESOLUTION = 0.25    # in meters per pixel along x and y axis
+RESOLUTION = 0.25  # in meters per pixel along x and y axis
 BBOX_CENTER_OFFSET_X = IMAGE_SIZE_X * RESOLUTION / 2
 BBOX_CENTER_OFFSET_Y = IMAGE_SIZE_Y * RESOLUTION / 2
 IMAGES_PER_OBJECT = 5
-TRAIN_TEST_SPLIT = 1/10
+TRAIN_TEST_SPLIT = 1 / 10
 DATA_DIR = '../data/windturbines/'
-RATIO_POS_NEG_SAMPLES = 1/10
+RATIO_POS_NEG_SAMPLES = 1 / 10
 RD_X_MIN = 646.36
 RD_X_MAX = 308975.28
 RD_Y_MIN = 276050.82
@@ -92,38 +92,34 @@ def requests_retry_session(
 response = requests.request('POST', SPARQL_URL, data='query=' + quote(payload), headers=headers)
 if not response.status_code == 200:
     print('Error getting list of', BRT_OBJECT_TYPE, 'instances from sparql endpoint')
+
 response_dict = json.loads(response.text)
 variables = response_dict['head']['vars']
 positive_data_points = response_dict['results']['bindings']
 
+# Data dirs
+for subset in ['train', 'validate', 'test']:
+    os.makedirs(DATA_DIR + subset + '/positive', exist_ok=True)
+    os.makedirs(DATA_DIR + subset + '/negative', exist_ok=True)
+
 # Metadata csv creation/append
-os.makedirs(DATA_DIR + 'train', exist_ok=True)
-os.makedirs(DATA_DIR + 'test', exist_ok=True)
-
-train_csv_exists = isfile('{}train/metadata.csv'.format(DATA_DIR))
-test_csv_exists = isfile('{}test/metadata.csv'.format(DATA_DIR))
-csvfile = {
-    'train': open('{}train/metadata.csv'.format(DATA_DIR), 'a', newline=''),
-    'test': open('{}test/metadata.csv'.format(DATA_DIR), 'a', newline='')
-}
-fieldnames = ['timestamp', 'contains_wind_turbine', 'URI', 'image_file', 'original_rd_x', 'original_rd_y', 'offset_x',
+csv_exists = isfile('{}metadata.csv'.format(DATA_DIR))
+csv_file = open('{}metadata.csv'.format(DATA_DIR), 'a', newline='')
+fieldnames = ['timestamp', 'subset', 'contains_wind_turbine', 'URI', 'image_file', 'original_rd_x', 'original_rd_y', 'offset_x',
               'offset_y', 'scale', 'request', ]
-csv_writer = {
-    'train': csv.DictWriter(csvfile['train'], fieldnames),
-    'test': csv.DictWriter(csvfile['test'], fieldnames)
-}
+csv_writer = csv.DictWriter(csv_file, fieldnames)
+if not csv_exists:
+    csv_writer.writeheader()
 
-if not train_csv_exists:
-    csv_writer['train'].writeheader()
-if not test_csv_exists:
-    csv_writer['test'].writeheader()
-
-# Harvest images for locations with wind turbines
-session = requests.Session()
+# Harvest positive data point images for locations with wind turbines
+sess = requests.Session()
 
 for record_index, record in enumerate(positive_data_points):
+    image_class = 'positive'
     if record_index % (1 / TRAIN_TEST_SPLIT) == 0:
         subset = 'test'
+    elif (record_index - 1) % (1 / TRAIN_TEST_SPLIT) == 0:
+        subset = 'validate'
     else:
         subset = 'train'
 
@@ -134,7 +130,9 @@ for record_index, record in enumerate(positive_data_points):
 
     for image_index, (offset, scale) in enumerate(zip(random_offsets, random_scales)):
         image_file_name = brt_id + '-' + str(image_index) + '.png'
-        if isfile(DATA_DIR + 'train/' + image_file_name) or isfile(DATA_DIR + 'test/' + image_file_name):
+        if True in [isfile(DATA_DIR + 'train/' + image_class + '/' + image_file_name),
+                    isfile(DATA_DIR + 'validate/' + image_class + '/' + image_file_name),
+                    isfile(DATA_DIR + 'test/' + image_class + '/' + image_file_name)]:
             print('Already have', image_file_name)
             continue
 
@@ -166,19 +164,20 @@ for record_index, record in enumerate(positive_data_points):
             'WIDTH': IMAGE_SIZE_X, 'HEIGHT': IMAGE_SIZE_Y
         }
 
-        response = requests_retry_session(session=session).get(WMS_URL, params=querystring, timeout=500)
+        response = requests_retry_session(session=sess).get(WMS_URL, params=querystring, timeout=500)
         if not response.headers['Content-Type'].startswith(IMAGE_FORMAT):
             print('Skipping entry', uri, 'Bad response type', response.headers['Content-Type'])
             continue
 
-        image_file_path = DATA_DIR + subset + '/' + image_file_name
+        image_file_path = DATA_DIR + subset + '/positive/' + image_file_name
         with open(image_file_path, mode='wb') as image:
             for chunk in response:
                 image.write(chunk)
 
-        csv_writer[subset].writerow({
+        csv_writer.writerow({
             'timestamp': datetime.now(),
-            'contains_wind_turbine': True,
+            'subset': subset,
+            'contains_wind_turbine': image_class,
             'URI': uri,
             'image_file': image_file_path,
             'original_rd_x': rd_coords[0][0],
@@ -188,16 +187,26 @@ for record_index, record in enumerate(positive_data_points):
             'scale': scale,
             'request': response.request.url
         })
-        csvfile[subset].flush()
+        csv_file.flush()
         print('Wrote image and data for record', record_index, 'of', len(positive_data_points))
 
 number_of_neg_samples = int(len(positive_data_points) / RATIO_POS_NEG_SAMPLES)
 
 for neg_sample_index in range(number_of_neg_samples):
+    image_class = 'negative'
     if neg_sample_index % (1 / TRAIN_TEST_SPLIT) == 0:
         subset = 'test'
+    elif (neg_sample_index - 1) % (1 / TRAIN_TEST_SPLIT) == 0:
+        subset = 'validate'
     else:
         subset = 'train'
+
+    last_image = 'negative-' + str(neg_sample_index) + '-4.png'
+    if True in [isfile(DATA_DIR + 'train/' + image_class + '/' + last_image),
+                isfile(DATA_DIR + 'validate/' + image_class + '/' + last_image),
+                isfile(DATA_DIR + 'test/' + image_class + '/' + last_image)]:
+        print('Already have', last_image)
+        continue
 
     random_x = random((1,)) * (RD_X_MAX - RD_X_MIN) + RD_X_MIN
     random_y = random((1,)) * (RD_Y_MAX - RD_Y_MIN) + RD_Y_MIN
@@ -214,9 +223,6 @@ for neg_sample_index in range(number_of_neg_samples):
 
     for image_index, (offset, scale) in enumerate(zip(random_offsets, random_scales)):
         image_file_name = 'negative-' + str(neg_sample_index) + '-' + str(image_index) + '.png'
-        if isfile(DATA_DIR + 'train/' + image_file_name) or isfile(DATA_DIR + 'test/' + image_file_name):
-            print('Already have', image_file_name)
-            continue
 
         rd_x = float(random_x) + offset[0]
         rd_y = float(random_y) + offset[1]
@@ -239,19 +245,20 @@ for neg_sample_index in range(number_of_neg_samples):
             'WIDTH': IMAGE_SIZE_X, 'HEIGHT': IMAGE_SIZE_Y
         }
 
-        response = requests_retry_session(session=session).get(WMS_URL, params=querystring, timeout=500)
+        response = requests_retry_session(session=sess).get(url=WMS_URL, params=querystring, timeout=500)
         if not response.headers['Content-Type'].startswith(IMAGE_FORMAT):
             print('Skipping entry', image_file_name, 'bad response type', response.headers['Content-Type'])
             continue
 
-        image_file_path = DATA_DIR + subset + '/' + image_file_name
+        image_file_path = DATA_DIR + subset + '/' + image_class + '/' + image_file_name
         with open(image_file_path, mode='wb') as image:
             for chunk in response:
                 image.write(chunk)
 
-        csv_writer[subset].writerow({
+        csv_writer.writerow({
             'timestamp': datetime.now(),
-            'contains_wind_turbine': False,
+            'subset': subset,
+            'contains_wind_turbine': image_class,
             'URI': None,
             'image_file': image_file_path,
             'original_rd_x': random_x,
@@ -261,11 +268,11 @@ for neg_sample_index in range(number_of_neg_samples):
             'scale': scale,
             'request': response.request.url
         })
-        csvfile[subset].flush()
+        csv_file.flush()
         print('Wrote image and data for record', neg_sample_index, 'of', number_of_neg_samples)
 
 # Close https session
-session.close()
+sess.close()
 
 runtime = time() - SCRIPT_START
 print(SCRIPT_NAME, 'finished successfully in {}'.format(timedelta(seconds=runtime)))

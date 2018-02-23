@@ -1,1 +1,1 @@
-# Wind turbine data
+# Wind turbine data folder

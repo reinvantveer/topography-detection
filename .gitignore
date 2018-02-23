@@ -100,5 +100,5 @@ ENV/
 # mypy
 .mypy_cache/
 /.idea/
-/data/windturbines/*.png
-/data/windturbines/*.csv
+data/windturbines/**/*.png
+data/windturbines/**/*.csv
