@@ -1,3 +1,5 @@
+scikit-learn
+keras
 urllib3
 requests
 shapely
