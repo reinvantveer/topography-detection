@@ -1,6 +1,14 @@
+tensorboard_logger
+matplotlib
+scikit-image
 scikit-learn
 keras
 urllib3
 requests
 shapely
 numpy
+torch
+torchvision
+tensorboard
+tqdm
+Pillow

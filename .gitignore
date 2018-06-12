@@ -103,3 +103,4 @@ ENV/
 data/windturbines/**/*.png
 data/windturbines/**/*.csv
 !/data/windturbines/example.png
+/model/tensorboard_log/
