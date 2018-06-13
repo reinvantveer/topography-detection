@@ -41,6 +41,7 @@ hp = {
 
     # REINFORCE
     'STD': float(os.getenv('STD', 0.17)),                       # gaussian policy standard deviation
+    'M': int(os.getenv('M', 10)),  # Monte Carlo sampling for valid and test sets
 
     # model core
     'HIDDEN_SIZE': int(os.getenv('HIDDEN_SIZE', 256)),          # hidden rnn size
@@ -116,7 +117,7 @@ for epoch in range(0, hp['EPOCHS']):
     train_loss, train_acc = train_one_epoch(model, optimizer, train_loader, epoch, hp)
 
     # evaluate on validation set
-    valid_loss, valid_acc = validate(model, optimizer, valid_loader, epoch, hp)
+    valid_loss, valid_acc = validate(model, valid_loader, epoch, hp)
 
     # # reduce lr if validation loss plateaus
     # self.scheduler.step(valid_loss)

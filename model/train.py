@@ -7,7 +7,7 @@ from torch.autograd import Variable
 from tqdm import tqdm
 
 from utils import AverageMeter
-from tensorboard_logger import configure, log_value
+from tensorboard_logger import log_value
 
 
 def reset(hp):
@@ -36,7 +36,6 @@ def train_one_epoch(model, optimizer, train_loader, epoch, hp):
     Train the model for 1 epoch of the training set.
     An epoch corresponds to one full pass through the entire
     training set in successive mini-batches.
-    This is used by train() and should not be called manually.
     """
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -49,12 +48,11 @@ def train_one_epoch(model, optimizer, train_loader, epoch, hp):
             x, y = Variable(x), Variable(y)
 
             # initialize location vector and hidden state
-            batch_size = x.shape[0]
+            hp['BATCH_SIZE'] = x.shape[0]  # We need to set this to train on variable batch size
             h_t, l_t = reset(hp)
 
             # save images
-            imgs = []
-            imgs.append(x[0:9])
+            imgs = [x[0:9]]
 
             # extract the glimpses
             locs = []
@@ -154,7 +152,7 @@ def train_one_epoch(model, optimizer, train_loader, epoch, hp):
         return losses.avg, accs.avg
 
 
-def validate(model, optimizer, valid_loader, epoch, hp):
+def validate(model, valid_loader, epoch, hp):
     """
     Evaluate the model on the validation set.
     """
@@ -166,27 +164,25 @@ def validate(model, optimizer, valid_loader, epoch, hp):
         x, y = Variable(x), Variable(y)
 
         # duplicate 10 times
-        x = x.repeat(self.M, 1, 1, 1)
+        x = x.repeat(hp['M'], 1, 1, 1)
 
         # initialize location vector and hidden state
-        self.batch_size = x.shape[0]
-        h_t, l_t = self.reset()
+        hp['BATCH_SIZE'] = x.shape[0]
+        h_t, l_t = reset(hp)
 
         # extract the glimpses
         log_pi = []
         baselines = []
-        for t in range(self.num_glimpses - 1):
+        for t in range(hp['NUM_GLIMPSES'] - 1):
             # forward pass through model
-            h_t, l_t, b_t, p = self.model(x, l_t, h_t)
+            h_t, l_t, b_t, p = model(x, l_t, h_t)
 
             # store
             baselines.append(b_t)
             log_pi.append(p)
 
         # last iteration
-        h_t, l_t, b_t, log_probas, p = self.model(
-            x, l_t, h_t, last=True
-        )
+        h_t, l_t, b_t, log_probas, p = model(x, l_t, h_t, last=True)
         log_pi.append(p)
         baselines.append(b_t)
 
@@ -196,24 +192,24 @@ def validate(model, optimizer, valid_loader, epoch, hp):
 
         # average
         log_probas = log_probas.view(
-            self.M, -1, log_probas.shape[-1]
+            hp['M'], -1, log_probas.shape[-1]
         )
         log_probas = torch.mean(log_probas, dim=0)
 
         baselines = baselines.contiguous().view(
-            self.M, -1, baselines.shape[-1]
+            hp['M'], -1, baselines.shape[-1]
         )
         baselines = torch.mean(baselines, dim=0)
 
         log_pi = log_pi.contiguous().view(
-            self.M, -1, log_pi.shape[-1]
+            hp['M'], -1, log_pi.shape[-1]
         )
         log_pi = torch.mean(log_pi, dim=0)
 
         # calculate reward
         predicted = torch.max(log_probas, 1)[1]
         R = (predicted.detach() == y).float()
-        R = R.unsqueeze(1).repeat(1, self.num_glimpses)
+        R = R.unsqueeze(1).repeat(1, hp['NUM_GLIMPSES'])
 
         # compute losses for differentiable modules
         loss_action = F.nll_loss(log_probas, y)
@@ -236,7 +232,7 @@ def validate(model, optimizer, valid_loader, epoch, hp):
         accs.update(acc.data[0], x.size()[0])
 
         # log to tensorboard
-        iteration = epoch*len(self.valid_loader) + i
+        iteration = epoch*len(valid_loader) + i
         log_value('valid_loss', losses.avg, iteration)
         log_value('valid_acc', accs.avg, iteration)
 
