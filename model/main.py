@@ -12,13 +12,17 @@ from recurrent_attention import RecurrentAttention
 from train import train_one_epoch, validate
 
 SCRIPT_VERSION = '2.0.5'
-SCRIPT_NAME = os.path.basename(__file__)
+SCRIPT_NAME = 'pytorch RAM'
 TIMESTAMP = str(datetime.now()).replace(':', '.')
 SIGNATURE = SCRIPT_NAME + ' ' + SCRIPT_VERSION + ' ' + TIMESTAMP
 
+# Add max pooling to reduce parameters and increase batch size?
+# Add soft attention mechanism?
+# Tweak REINFORCE gaussian policy standard deviation
+
 hp = {
     # Data settings
-    'ROOT_DIR': os.getenv('ROOT_DIR', '/media/reinv/USB/windturbines/'),
+    'ROOT_DIR': os.getenv('ROOT_DIR', '/media/reinv/501E7A121E79F0F8/data/windturbines/'),
     'PLOT_DIR': os.getenv('PLOT_DIR', '../plot/'),
     'NUM_CHANNELS': int(os.getenv('NUM_CHANNELS', 3)),          # channels per image
     'NUM_CLASSES': int(os.getenv('NUM_CLASSES', 2)),            # number of classes for data set
@@ -27,15 +31,16 @@ hp = {
     'EPOCHS': int(os.getenv('EPOCHS', 200)),
     'PATIENCE': int(os.getenv('PATIENCE', 50)),
     'LEARNING_RATE': float(os.getenv('LEARNING_RATE', 3e-4)),
-    'BATCH_SIZE': int(os.getenv('BATCH_SIZE', 64)),
+    'BATCH_SIZE': int(os.getenv('BATCH_SIZE', 32)),
+    'VALIDATE_BATCH_SIZE': int(os.getenv('VALIDATE_BATCH_SIZE', 16)),
     'PLOT_FREQ': int(os.getenv('PLOT_FREQ', 1)),
     'LOGS_DIR': os.getenv('LOGS_DIR', './tensorboard_log'),
     'MODEL_NAME': os.getenv('MODEL_NAME', SIGNATURE),
 
     # Glimpse network
-    'PATCH_SIZE': int(os.getenv('PATCH_SIZE', 8)),              # size of extracted patch at highest res
-    'NUM_PATCHES': int(os.getenv('NUM_PATCHES', 1)),            # number of downscaled patches per glimpse
-    'GLIMPSE_SCALE': int(os.getenv('GLIMPSE_SCALE', 2)),        # scale of successive patches
+    'PATCH_SIZE': int(os.getenv('PATCH_SIZE', 48)),             # size of extracted patch at highest res
+    'NUM_PATCHES': int(os.getenv('NUM_PATCHES', 3)),            # number of downscaled patches per glimpse
+    'GLIMPSE_SCALE': int(os.getenv('GLIMPSE_SCALE', 3)),        # scale of successive patches
     'LOC_HIDDEN': int(os.getenv('LOC_HIDDEN', 128)),            # hidden size of loc fully connected layer
     'GLIMPSE_HIDDEN': int(os.getenv('GLIMPSE_HIDDEN', 128)),    # hidden size of glimpse fully connected layer
 
@@ -45,7 +50,7 @@ hp = {
 
     # model core
     'HIDDEN_SIZE': int(os.getenv('HIDDEN_SIZE', 256)),          # hidden rnn size
-    'NUM_GLIMPSES': int(os.getenv('NUM_GLIMPSES', 6))
+    'NUM_GLIMPSES': int(os.getenv('NUM_GLIMPSES', 8))
 }
 
 data_transform = transforms.Compose([
@@ -83,8 +88,8 @@ train_loader = torch.utils.data.DataLoader(
 )
 valid_loader = torch.utils.data.DataLoader(
     validate_data_set,
-    batch_size=hp['BATCH_SIZE'],
-    sampler=train_sampler,
+    batch_size=hp['VALIDATE_BATCH_SIZE'],
+    sampler=valid_sampler,
     num_workers=1,      # GPU mode
     pin_memory=True,    # GPU mode
 )

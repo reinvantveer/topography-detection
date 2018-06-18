@@ -18,9 +18,7 @@ def reset(hp):
     This is called once every time a new minibatch
     `x` is introduced.
     """
-    dtype = (
-        torch.cuda.FloatTensor
-    )
+    dtype = torch.cuda.FloatTensor
 
     h_t = torch.zeros(hp['BATCH_SIZE'], hp['HIDDEN_SIZE'])
     h_t = Variable(h_t).type(dtype)
@@ -167,7 +165,7 @@ def validate(model, valid_loader, epoch, hp):
         x = x.repeat(hp['M'], 1, 1, 1)
 
         # initialize location vector and hidden state
-        hp['BATCH_SIZE'] = x.shape[0]
+        hp['VALIDATE_BATCH_SIZE'] = x.shape[0]
         h_t, l_t = reset(hp)
 
         # extract the glimpses
