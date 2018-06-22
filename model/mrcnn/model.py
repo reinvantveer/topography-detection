@@ -2176,6 +2176,8 @@ class MaskRCNN():
             optimizer=optimizer,
             loss=[None] * len(self.keras_model.outputs))
 
+        self.keras_model.summary()
+
         # Add metrics for losses
         for name in loss_names:
             if name in self.keras_model.metrics_names:
@@ -2339,6 +2341,7 @@ class MaskRCNN():
         else:
             workers = multiprocessing.cpu_count()
 
+        print('Fitting data to model')
         self.keras_model.fit_generator(
             train_generator,
             initial_epoch=self.epoch,
@@ -2347,7 +2350,7 @@ class MaskRCNN():
             callbacks=callbacks,
             validation_data=val_generator,
             validation_steps=self.config.VALIDATION_STEPS,
-            max_queue_size=100,
+            max_queue_size=6,
             workers=workers,
             use_multiprocessing=True,
         )

@@ -10,5 +10,6 @@ numpy
 torch
 torchvision
 tensorboard
+tensorflow-gpu
 tqdm
 Pillow
