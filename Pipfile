@@ -1,0 +1,26 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+matplotlib = "*"
+scikit-image = "*"
+scikit-learn = "*"
+"urllib3" = "*"
+requests = "*"
+numpy = "*"
+torch = "*"
+torchvision = "*"
+tensorboard = "*"
+tqdm = "*"
+tensorboard_logger = "*"
+Keras = "*"
+Shapely = "*"
+Pillow = "*"
+tensorflow-gpu = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.6"
