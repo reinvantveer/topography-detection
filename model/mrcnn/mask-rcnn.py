@@ -1,9 +1,11 @@
 import os
 
+import numpy as np
 
 import mrcnn.model as modellib
+from mrcnn import visualize
 from mrcnn.config import Config
-from mrcnn.random_shape_dataset import ShapesDataset
+# from mrcnn.random_shape_dataset import ShapesDataset
 from mrcnn.wind_turbines_dataset import WindTurbinesDataset
 
 DATA_DIR = '/media/reinv/501E7A121E79F0F8/data/windturbines/'
@@ -19,7 +21,7 @@ class WindTurbinesConfig(Config):
     IMAGE_RESIZE_MODE = "none"  # images have already been standardized to 1MP
 
     # These are 1MP images
-    IMAGES_PER_GPU = 2
+    IMAGES_PER_GPU = 1
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 1  # background + windturbines
@@ -61,7 +63,15 @@ dataset_val = WindTurbinesDataset()
 dataset_val.load_samples(DATA_DIR, 'validate', config)
 dataset_val.prepare()
 
-model.train(dataset_train, dataset_val,
-            learning_rate=config.LEARNING_RATE,
-            epochs=1,
-            layers='heads')
+image_ids = np.random.choice(dataset_train.image_ids, 4)
+for image_id in image_ids:
+    image = dataset_train.load_image(image_id)
+    mask, class_ids = dataset_train.load_mask(image_id)
+    visualize.display_top_masks(image, mask, class_ids, dataset_train.class_names)
+
+
+
+# model.train(dataset_train, dataset_val,
+#             learning_rate=config.LEARNING_RATE,
+#             epochs=1,
+#             layers='heads')

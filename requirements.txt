@@ -11,7 +11,7 @@ numpy
 torch
 torchvision
 tensorboard
-tensorflow-gpu
+tensorflow-gpu==1.7.0
 tqdm
 Pillow
 
