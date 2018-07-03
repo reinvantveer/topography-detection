@@ -3,7 +3,7 @@ tensorboard_logger
 matplotlib
 scikit-image
 scikit-learn
-keras
+keras==2.0.8
 urllib3
 requests
 shapely

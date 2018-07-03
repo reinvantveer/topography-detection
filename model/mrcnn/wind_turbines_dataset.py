@@ -30,17 +30,16 @@ class WindTurbinesDataset(utils.Dataset):
         # Add images
         # Images are loaded in load_image().
         rows = list(frame.iterrows())
-        for _, record in tqdm(rows[::1000]):
-            centroid_pixel_x = (config.IMAGE_SHAPE[0] / 2) + \
-                               (float(record['offset_x']) / config.RESOLUTION) \
-                               / record['scale']
-            centroid_pixel_y = (config.IMAGE_SHAPE[1] / 2) - \
-                               (float(record['offset_y']) / config.RESOLUTION) / record['scale']
+        for _, record in tqdm(rows):
+            offset_x = float(record['offset_x']) / config.RESOLUTION * record['scale']
+            offset_y = float(record['offset_y']) / config.RESOLUTION * record['scale']
+            centroid_pixel_x = config.IMAGE_SHAPE[0] / 2 - offset_x
+            centroid_pixel_y = config.IMAGE_SHAPE[1] / 2 + offset_y
 
             self.add_image("windturbines",
                            image_id=record['image_file'], path=dataset_dir + record['image_file'],
                            width=config.IMAGE_SHAPE[0], height=config.IMAGE_SHAPE[1],
-                           centroids=[(round(centroid_pixel_x), round(centroid_pixel_y))],
+                           centroids=[(round(centroid_pixel_y), round(centroid_pixel_x))],  # kinda weird HxW
                            size=config.OBJECT_SIZE / 2)
 
     def load_mask(self, image_id):
