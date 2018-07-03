@@ -1,8 +1,21 @@
-import matplotlib.pyplot as plt
+import os
 
-from mrcnn.mask_rcnn import WindTurbinesConfig
-import mrcnn.model as modellib
-from data_loader import WindTurbinesDataset
+import matplotlib.pyplot as plt
+import numpy as np
+import argparse
+
+from mask_rcnn import WindTurbinesConfig, DATA_DIR
+import model as modellib
+from wind_turbines_dataset import WindTurbinesDataset
+import visualize
+
+
+
+parser = argparse.ArgumentParser(description='Infer random a validation image from a trained mask-rcnn model.')
+parser.add_argument('model_weights', metavar='model_weights', type=str, help='a keras h5 mask-rcnn model weights file')
+args = parser.parse_args()
+
+MODEL_DIR = os.path.dirname(args.model_weights)
 
 
 class InferenceConfig(WindTurbinesConfig):
@@ -35,15 +48,11 @@ model = modellib.MaskRCNN(mode="inference",
                           config=inference_config,
                           model_dir=MODEL_DIR)
 
-# Recreate the model in inference mode
-# model = modellib.MaskRCNN(mode="inference",
-#                           config=inference_config,
-#                           model_dir=MODEL_DIR)
-
 # Get path to saved weights
 # Either set a specific path or find last trained weights
 # model_path = os.path.join(ROOT_DIR, ".h5 file name here")
-model_path = model.find_last()
+# model_path = model.find_last()
+model_path = args.model_weights
 
 # Load trained weights
 print("Loading weights from ", model_path)
@@ -62,10 +71,11 @@ print("gt_bbox", gt_bbox)
 print("gt_mask", gt_mask)
 
 visualize.display_instances(original_image, gt_bbox, gt_mask, gt_class_id,
-                            dataset_train.class_names, figsize=(8, 8))
+                            dataset_val.class_names, figsize=(8, 8))
 
 results = model.detect([original_image], verbose=1)
 
 r = results[0]
 visualize.display_instances(original_image, r['rois'], r['masks'], r['class_ids'],
                             dataset_val.class_names, r['scores'], ax=get_ax())
+print('Done!')

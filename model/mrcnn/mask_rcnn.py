@@ -1,14 +1,11 @@
 import os
 
-import numpy as np
+import model as modellib
+from config import Config
+from wind_turbines_dataset import WindTurbinesDataset
 
-import mrcnn.model as modellib
-from mrcnn import visualize
-from mrcnn.config import Config
-from mrcnn.wind_turbines_dataset import WindTurbinesDataset
-
-DATA_DIR = '/media/reinv/501E7A121E79F0F8/data/windturbines/'
-
+# DATA_DIR = '/media/reinv/501E7A121E79F0F8/data/windturbines/'
+DATA_DIR = '/windturbines/data/'
 
 class WindTurbinesConfig(Config):
     """Configuration for training on the toy shapes dataset.
@@ -21,7 +18,7 @@ class WindTurbinesConfig(Config):
     EPOCHS = 16
 
     # These are 1MP images
-    IMAGES_PER_GPU = 1
+    IMAGES_PER_GPU = 2
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 1  # background + windturbines
@@ -45,27 +42,28 @@ class WindTurbinesConfig(Config):
 ROOT_DIR = os.path.abspath("../../")
 MODEL_DIR = os.path.join(ROOT_DIR, "logs")
 config = WindTurbinesConfig()
-config.display()
 
+if __name__ == '__main__':
+    config.display()
 
-model = modellib.MaskRCNN(mode="training", config=config,
-                          model_dir=MODEL_DIR)
+    model = modellib.MaskRCNN(mode="training", config=config,
+                              model_dir=MODEL_DIR)
 
-# Training dataset
-print("Loading training set metadata:")
-dataset_train = WindTurbinesDataset()
-dataset_train.load_samples(DATA_DIR, 'train', config)
-dataset_train.prepare()
+    # Training dataset
+    print("Loading training set metadata:")
+    dataset_train = WindTurbinesDataset()
+    dataset_train.load_samples(DATA_DIR, 'train', config)
+    dataset_train.prepare()
 
-# Validation dataset
-print("Loading validation set metadata:")
-dataset_val = WindTurbinesDataset()
-dataset_val.load_samples(DATA_DIR, 'validate', config)
-dataset_val.prepare()
+    # Validation dataset
+    print("Loading validation set metadata:")
+    dataset_val = WindTurbinesDataset()
+    dataset_val.load_samples(DATA_DIR, 'validate', config)
+    dataset_val.prepare()
 
-# Train the model
-model.train(dataset_train, dataset_val,
-            learning_rate=config.LEARNING_RATE,
-            epochs=config.EPOCHS,
-            layers='heads')
+    # Train the model
+    model.train(dataset_train, dataset_val,
+                learning_rate=config.LEARNING_RATE,
+                epochs=config.EPOCHS,
+                layers='heads')
 

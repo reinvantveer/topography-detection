@@ -10,7 +10,7 @@ shapely
 numpy
 torch
 torchvision
-tensorboard
+tensorboard==1.7.0
 tensorflow-gpu==1.7.0
 tqdm
 Pillow
