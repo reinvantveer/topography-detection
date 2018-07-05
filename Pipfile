@@ -12,13 +12,14 @@ requests = "*"
 numpy = "*"
 torch = "*"
 torchvision = "*"
-tensorboard = "*"
+tensorboard = "==1.7.0"
 tqdm = "*"
 tensorboard_logger = "*"
-Keras = "*"
+Keras = "==2.0.8"
 Shapely = "*"
 Pillow = "*"
-tensorflow-gpu = "*"
+tensorflow-gpu = "==1.7.0"
+pandas = "*"
 
 [dev-packages]
 
