@@ -66,4 +66,3 @@ if __name__ == '__main__':
                 learning_rate=config.LEARNING_RATE,
                 epochs=config.EPOCHS,
                 layers='heads')
-
