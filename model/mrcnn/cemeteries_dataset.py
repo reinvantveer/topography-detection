@@ -81,6 +81,20 @@ class CemeteriesDataset(utils.Dataset):
 
             rr, cc = skimage.draw.polygon(y_coords, x_coords, mask.shape)
             mask[rr, cc, 0] = 1
+        elif mask_shape.geom_type == 'MultiPolygon':
+            mask = np.zeros([info["height"], info["width"], len(mask_shape.geoms)],
+                            dtype=np.uint8)
+
+            for polygon_idx, polygon in enumerate(mask_shape.geoms):
+                x_coords = np.array(polygon.boundary.coords.xy[0]) - info['geolocation_rd'][0]
+                x_coords = (x_coords - info['geolocation_offset'][0]) / info['resolution'] / info['scale']
+                x_coords = x_coords + info['width'] / 2
+                y_coords = np.array(polygon.boundary.coords.xy[1]) - info['geolocation_rd'][1]
+                y_coords = (-y_coords + info['geolocation_offset'][1]) / info['resolution'] / info['scale']
+                y_coords = y_coords + info['height'] / 2
+
+                rr, cc = skimage.draw.polygon(y_coords, x_coords, mask.shape)
+                mask[rr, cc, polygon_idx] = 1
         else:
             raise ValueError('Don\'t know how to handle geometries of type {} for record {}'.format(mask_shape.geom_type, info['path']))
 
