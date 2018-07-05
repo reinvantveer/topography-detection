@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import numpy as np
 import skimage
@@ -38,14 +40,17 @@ class CemeteriesDataset(utils.Dataset):
             else:
                 image_file = dataset_dir + record['image_file']
 
-            self.add_image("cemeteries",
-                           image_id=record['image_file'], path=image_file,
-                           width=config.IMAGE_SHAPE[0], height=config.IMAGE_SHAPE[1],
-                           mask_shape=record['mask_shape'],
-                           geolocation_rd=(float(record['original_rd_x']), float(record['original_rd_y'])),
-                           geolocation_offset=(float(record['offset_x']), float(record['offset_y'])),
-                           scale=float(record['scale']), resolution=config.RESOLUTION,
-                           )
+            if os.path.isfile(image_file):
+                self.add_image("cemeteries",
+                               image_id=record['image_file'], path=image_file,
+                               width=config.IMAGE_SHAPE[0], height=config.IMAGE_SHAPE[1],
+                               mask_shape=record['mask_shape'],
+                               geolocation_rd=(float(record['original_rd_x']), float(record['original_rd_y'])),
+                               geolocation_offset=(float(record['offset_x']), float(record['offset_y'])),
+                               scale=float(record['scale']), resolution=config.RESOLUTION,
+                               )
+            else:
+                print('Skipping non-existent path', image_file)
 
     def load_mask(self, image_id):
         """Generate instance masks for an image.
