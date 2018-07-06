@@ -18,10 +18,10 @@ class CemeteriesConfig(Config):
     # Give the configuration a recognizable name
     NAME = "cemeteries"
     IMAGE_RESIZE_MODE = "none"  # images have already been standardized to 1MP
-    EPOCHS = 16
+    EPOCHS = 100
 
     # These are 1MP images
-    IMAGES_PER_GPU = 1
+    IMAGES_PER_GPU = 3
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 1  # background + windturbines
@@ -30,7 +30,7 @@ class CemeteriesConfig(Config):
     RPN_TRAIN_ANCHORS_PER_IMAGE = 1
 
     # Maximum number of ground truth instances to use in one image
-    MAX_GT_INSTANCES = 5
+    MAX_GT_INSTANCES = 1
 
     # Max number of final detections
     DETECTION_MAX_INSTANCES = 1

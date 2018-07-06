@@ -30,17 +30,13 @@ class CemeteriesDataset(utils.Dataset):
         # Images are loaded in load_image().
         rows = list(frame.iterrows())
         for _, record in tqdm(rows):
-            offset_x = float(record['offset_x']) / config.RESOLUTION / record['scale']
-            offset_y = float(record['offset_y']) / config.RESOLUTION / record['scale']
-            centroid_pixel_x = config.IMAGE_SHAPE[0] / 2 - offset_x
-            centroid_pixel_y = config.IMAGE_SHAPE[1] / 2 + offset_y
-
             if record['image_file'].startswith(dataset_dir):
                 image_file = record['image_file']
             else:
                 image_file = dataset_dir + record['image_file']
 
-            if os.path.isfile(image_file):
+            has_polygon = record['mask_shape'].startswith('POLYGON')
+            if os.path.isfile(image_file) and has_polygon:
                 self.add_image("cemeteries",
                                image_id=record['image_file'], path=image_file,
                                width=config.IMAGE_SHAPE[0], height=config.IMAGE_SHAPE[1],
@@ -81,20 +77,6 @@ class CemeteriesDataset(utils.Dataset):
 
             rr, cc = skimage.draw.polygon(y_coords, x_coords, mask.shape)
             mask[rr, cc, 0] = 1
-        elif mask_shape.geom_type == 'MultiPolygon':
-            mask = np.zeros([info["height"], info["width"], len(mask_shape.geoms)],
-                            dtype=np.uint8)
-
-            for polygon_idx, polygon in enumerate(mask_shape.geoms):
-                x_coords = np.array(polygon.boundary.coords.xy[0]) - info['geolocation_rd'][0]
-                x_coords = (x_coords - info['geolocation_offset'][0]) / info['resolution'] / info['scale']
-                x_coords = x_coords + info['width'] / 2
-                y_coords = np.array(polygon.boundary.coords.xy[1]) - info['geolocation_rd'][1]
-                y_coords = (-y_coords + info['geolocation_offset'][1]) / info['resolution'] / info['scale']
-                y_coords = y_coords + info['height'] / 2
-
-                rr, cc = skimage.draw.polygon(y_coords, x_coords, mask.shape)
-                mask[rr, cc, polygon_idx] = 1
         else:
             raise ValueError('Don\'t know how to handle geometries of type {} for record {}'.format(mask_shape.geom_type, info['path']))
 
