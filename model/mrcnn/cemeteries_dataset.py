@@ -17,9 +17,9 @@ class CemeteriesDataset(utils.Dataset):
         height, width: the size of the generated images.
         """
         assert subset in ["train", "validate"]
-        CSV_FILE = dataset_dir + 'metadata.csv'
+        csv_file = dataset_dir + 'metadata.csv'
 
-        frame = pd.read_csv(CSV_FILE)
+        frame = pd.read_csv(csv_file)
         frame = frame[frame['subset'] == subset]
         frame = frame[frame['contains'] == 'positive']
 
@@ -37,14 +37,20 @@ class CemeteriesDataset(utils.Dataset):
 
             has_polygon = record['mask_shape'].startswith('POLYGON')
             if os.path.isfile(image_file) and has_polygon:
-                self.add_image("cemeteries",
-                               image_id=record['image_file'], path=image_file,
-                               width=config.IMAGE_SHAPE[0], height=config.IMAGE_SHAPE[1],
-                               mask_shape=record['mask_shape'],
-                               geolocation_rd=(float(record['original_rd_x']), float(record['original_rd_y'])),
-                               geolocation_offset=(float(record['offset_x']), float(record['offset_y'])),
-                               scale=float(record['scale']), resolution=config.RESOLUTION,
-                               )
+                try:
+                    mask_shape = wkt.loads(record['mask_shape'])
+                    coords = mask_shape.boundary.coords.xy
+                    self.add_image(
+                        "cemeteries",
+                        image_id=record['image_file'], path=image_file,
+                        width=config.IMAGE_SHAPE[0], height=config.IMAGE_SHAPE[1],
+                        mask_shape=record['mask_shape'],
+                        geolocation_rd=(float(record['original_rd_x']), float(record['original_rd_y'])),
+                        geolocation_offset=(float(record['offset_x']), float(record['offset_y'])),
+                        scale=float(record['scale']), resolution=config.RESOLUTION,
+                    )
+                except Exception as e:
+                    print(e)
             else:
                 print('Skipping non-existent path', image_file)
 
@@ -66,7 +72,7 @@ class CemeteriesDataset(utils.Dataset):
 
         if mask_shape.geom_type == 'Polygon':
             mask = np.zeros([info["height"], info["width"], 1],
-                        dtype=np.uint8)
+                            dtype=np.uint8)
             # Get indexes of pixels inside the polygon and set them to 1
             x_coords = np.array(mask_shape.boundary.coords.xy[0]) - info['geolocation_rd'][0]
             x_coords = (x_coords - info['geolocation_offset'][0]) / info['resolution'] / info['scale']
@@ -78,7 +84,8 @@ class CemeteriesDataset(utils.Dataset):
             rr, cc = skimage.draw.polygon(y_coords, x_coords, mask.shape)
             mask[rr, cc, 0] = 1
         else:
-            raise ValueError('Don\'t know how to handle geometries of type {} for record {}'.format(mask_shape.geom_type, info['path']))
+            raise ValueError('Don\'t know how to handle geometries of type {} for record {}'.format(
+                mask_shape.geom_type, info['path']))
 
         # Return mask, and array of class IDs of each instance. Since we have
         # one class ID only, we return an array of 1s

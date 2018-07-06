@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 
-from mask_rcnn import WindTurbinesConfig, DATA_DIR
+from mask_rcnn_wind_turbines import WindTurbinesConfig, DATA_DIR
 import model as modellib
-from cemeteries_dataset import CemeteriesDataset
+from wind_turbines_dataset import WindTurbinesDataset
 import visualize
 
 parser = argparse.ArgumentParser(description='Infer random a validation image from a trained mask-rcnn model.')
@@ -37,7 +37,7 @@ inference_config = InferenceConfig()
 
 # Validation dataset
 print("Loading validation set metadata:")
-dataset_val = CemeteriesDataset()
+dataset_val = WindTurbinesDataset()
 dataset_val.load_samples(DATA_DIR, 'validate', inference_config)
 dataset_val.prepare()
 
