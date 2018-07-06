@@ -194,7 +194,7 @@ for record_index, record in tqdm(enumerate(positive_data_points)):
             'subset': subset,
             'contains': image_class,
             'URI': uri,
-            'image_file': image_file_path,
+            'image_file': subset + '/positive/' + image_file_name,
             'original_rd_x': cemetery_centroid[0][0],
             'original_rd_y': cemetery_centroid[0][1],
             'offset_x': offset[0],
