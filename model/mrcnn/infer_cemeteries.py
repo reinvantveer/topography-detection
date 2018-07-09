@@ -4,22 +4,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 
-from mask_rcnn import WindTurbinesConfig, DATA_DIR
+from mask_rcnn_cemeteries import CemeteriesConfig, DATA_DIR
 import model as modellib
-from wind_turbines_dataset import WindTurbinesDataset
+from cemeteries_dataset import CemeteriesDataset
 import visualize
 
-parser = argparse.ArgumentParser(description='Infer random a validation image from a trained mask-rcnn model.')
+parser = argparse.ArgumentParser(description='Infer a random validation image from a trained mask-rcnn model.')
 parser.add_argument('model_weights', metavar='model_weights', type=str, help='a keras h5 mask-rcnn model weights file')
 args = parser.parse_args()
 
 MODEL_DIR = os.path.dirname(args.model_weights)
 
 
-class InferenceConfig(WindTurbinesConfig):
+class InferenceConfig(CemeteriesDataset):
     GPU_COUNT = 1
     IMAGES_PER_GPU = 1
-    OBJECT_SIZE = 160
 
 
 def get_ax(rows=1, cols=1, size=8):
@@ -38,7 +37,7 @@ inference_config = InferenceConfig()
 
 # Validation dataset
 print("Loading validation set metadata:")
-dataset_val = WindTurbinesDataset()
+dataset_val = CemeteriesDataset()
 dataset_val.load_samples(DATA_DIR, 'validate', inference_config)
 dataset_val.prepare()
 

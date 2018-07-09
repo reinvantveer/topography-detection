@@ -20,8 +20,11 @@ class CemeteriesConfig(Config):
     IMAGE_RESIZE_MODE = "none"  # images have already been standardized to 1MP
     EPOCHS = 100
 
+    # Image mean (RGB)
+    MEAN_PIXEL = np.array([108.2, 118.6, 105.6])
+
     # These are 1MP images
-    IMAGES_PER_GPU = 3
+    IMAGES_PER_GPU = 1
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 1  # background + windturbines
@@ -56,7 +59,7 @@ if __name__ == '__main__':
     dataset_train.prepare()
 
     # Test on random images
-    for _ in range(10):
+    for _ in range(0):
         image_id = np.random.choice(dataset_train.image_ids)
         original_image, image_meta, gt_class_id, gt_bbox, gt_mask = \
             modellib.load_image_gt(dataset_train, config,
