@@ -7,6 +7,7 @@ from wind_turbines_dataset import WindTurbinesDataset
 # DATA_DIR = '/media/reinv/501E7A121E79F0F8/data/windturbines/'
 DATA_DIR = '/windturbines/data/'
 
+
 class WindTurbinesConfig(Config):
     """Configuration for training on the toy shapes dataset.
     Derives from the base Config class and overrides values specific

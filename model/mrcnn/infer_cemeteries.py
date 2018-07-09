@@ -16,9 +16,10 @@ args = parser.parse_args()
 MODEL_DIR = os.path.dirname(args.model_weights)
 
 
-class InferenceConfig(CemeteriesDataset):
+class InferenceConfig(CemeteriesConfig):
     GPU_COUNT = 1
     IMAGES_PER_GPU = 1
+    DETECTION_MIN_CONFIDENCE = 0.85
 
 
 def get_ax(rows=1, cols=1, size=8):

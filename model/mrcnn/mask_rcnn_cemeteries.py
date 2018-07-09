@@ -7,8 +7,7 @@ from config import Config
 from cemeteries_dataset import CemeteriesDataset
 import visualize
 
-
-DATA_DIR = '/media/reinv/USB/cemeteries/'
+DATA_DIR = '/data/cemeteries/'
 
 
 class CemeteriesConfig(Config):
