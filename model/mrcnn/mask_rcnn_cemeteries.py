@@ -18,15 +18,17 @@ class CemeteriesConfig(Config):
     NAME = "cemeteries"
     IMAGE_RESIZE_MODE = "none"  # images have already been standardized to 1MP
     EPOCHS = 100
+    LEARNING_RATE = 0.0001
+    WEIGHT_DECAY = 0.00001
 
     # Image mean (RGB)
     MEAN_PIXEL = np.array([108.2, 118.6, 105.6])
 
     # These are 1MP images
-    IMAGES_PER_GPU = 1
+    IMAGES_PER_GPU = 2
 
     # Number of classes (including background)
-    NUM_CLASSES = 1 + 1  # background + windturbines
+    NUM_CLASSES = 1 + 1  # background + cemeteries
 
     # Since in general there is only one wind turbine per image
     RPN_TRAIN_ANCHORS_PER_IMAGE = 1
